@@ -40,13 +40,15 @@ class genetic_optimisation:
 
         if param_one is not None:
             self.param_one = param_one
+            self.params = 1
         else:
             print("WARNING: no hyperparameters entered")
         if param_two is not None:
             self.param_two = param_two
+            self.params = 2
 
     def train(self):
-        if self.param_one is not None:
+        if self.params == 1:
             top_performers = []
             for gen in range(self.generations):
                 performance = SumTree(self.size)
@@ -71,15 +73,16 @@ class genetic_optimisation:
                 self.keep_metrics = keep_metrics
             return(hyperparameters, keep_metrics)
 
-        if self.param_two is not None:
+        if self.params == 2:
             top_performers = []
             for gen in range(self.generations):
                 performance = SumTree(self.size)
-                randoms = np.random.randint(low = self.param_one[0], high = self.param_one[1], size=(self.size - len(top_performers)))
-                hps = np.append(np.array(top_performers), randoms)
+                hp1 = np.random.randint(low = self.param_one[0], high = self.param_one[1], size=(self.size - len(top_performers)))
+                hp2 = np.random.randint(low = self.param_two[0], high = self.param_two[1], size=(self.size - len(top_performers)))
+                hps = np.append(np.array(top_performers).reshape((-1,2)), np.dstack((hp1,hp2))).reshape((-1,2))
                 for hp in hps: # train all models and save performance
                     temp.model = self.model
-                    temp.model.build(self.x_train,self.y_train, hp1)
+                    temp.model.build(self.x_train,self.y_train, hp[0],hp[1])
                     temp.model.train(self.epoch)
                     metric = temp.model.evaluate(self.x_test, self.x_test)
                     performance.add(metric, np.array([hp]))
@@ -87,11 +90,13 @@ class genetic_optimisation:
                 hyperparameters = [] # array to store the best n=self.keep performing hyperparameters
                 for metric in keep_metrics: # note that the order of keep metrics is lowest to highest performance
                     _, __, hp.temp = performance.get(metric)
-                    hyperparameters.append(hp.temp[0])
-                mated = []
-                for mate in range(len(hyperparameters)-1): # mating routine
-                    mated.append(np.mean(hyperparameters[mate:mate+1]))
-                top_performers = mated
+                    hyperparameters = np.append(np.array(hyperparameters), hp.temp)
+                mated_hp1 = []
+                mated_hp2 = []
+                for mate in range(len(hyperparameters.reshape((-1,2))) - 1): # mating routine
+                    mated_hp1.append(np.mean(hyperparameters[mate:mate+1,0]))
+                    mated_hp2.append(np.mean(hyperparameters[mate:mate+1,1]))
+                top_performers = np.dstack((np.array(hp1),np.array(hp2)))).reshape((-1,2))
                 self.hyperparameters = hyperparameters
                 self.keep_metrics = keep_metrics
             return(hyperparameters, keep_metrics)
